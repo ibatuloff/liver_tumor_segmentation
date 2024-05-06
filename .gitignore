@@ -1,3 +1,3 @@
-valid_masks/
+valid_masks/*
 final_model_multiclass_liver_seg_UNet.hdf5
 multiclass_liver_seg_UNet.hdf5
