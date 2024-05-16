@@ -1,3 +1,8 @@
 logs
 resunet_pp.hdf5
 final_model_resunet_pp.hdf5
+final_vgg16unet_model.hdf5
+final_UNet.hdf5
+vgg16unet_model.hdf5
+UNet.hdf5
+final_resunet_pp.hdf5
