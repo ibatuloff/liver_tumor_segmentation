@@ -1,5 +1,4 @@
 import os
-# os.system('pip install requirements.txt')
 import streamlit as st
 import tensorflow as tf
 import numpy as np
@@ -7,6 +6,22 @@ import matplotlib.pyplot as plt
 from PIL import Image
 import nibabel as nib
 import cv2
+from sklearn.preprocessing import MinMaxScaler
+from celluloid import Camera
+
+
+def vizualizelayers(ct, mask, save_path="animation.gif"):
+    fig = plt.figure()
+    camera = Camera(fig) 
+
+    for i in range(ct.shape[2]):
+        plt.imshow(ct[:,:,i], cmap="gray")
+        mask = np.ma.maskedwhere(mask[:,:,i]==0, mask[:,:,i])
+        plt.imshow(mask, alpha=0.5)
+        camera.snap()
+    plt.tight_layout()
+    animation = camera.animate()
+    animation.save(save_path, writer='PillowWriter', fps=5)
 
 def read_image(x):
     x = cv2.imread(x, cv2.IMREAD_GRAYSCALE)
@@ -23,31 +38,35 @@ def get_slices(self, im_nii_path):
         ims.append(im)
     return ims
 
-
-def predict_and_save(input_path: str, output_path: str):
+@st.cache_data
+def predict(input_path: str):
     input_slices = nib.load(input_path).get_fdata()
+    
     answer = []
-    # st.write(input_slices.shape)
+
     for slice_idx in range(input_slices.shape[2]):
+
         image = input_slices[:,:,slice_idx]
-        image = np.expand_dims(image,axis=-1)
-        image = np.repeat(image, 3, axis=-1)
-        # st.write(image.shape)
+
+        Image.fromarray(image).convert("L").save(f"uploaded_files/slice.png")
+        image = read_image('uploaded_files/slice.png')
+
         prediction = model.predict(np.expand_dims(image,axis=0)).squeeze()
-        
         prediction = np.argmax(prediction, axis=-1).astype(np.int32)
 
         prediction[prediction == 1] = 128
         prediction[prediction == 2] = 255 
-        
         answer.append(prediction)
 
-    output_array = np.array(answer).transpose(1, 2, 0)
-    output_image = nib.Nifti1Image(output_array, np.eye(4))
-    nib.save(output_image, output_path)
+        os.remove('uploaded_files/slice.png')
     
 
-model = tf.keras.models.load_model('models/final_resunet_pp_andreydataset_focaltversky_alpha0.6_beta0.4_gamma_1.hdf5', compile=False)
+
+    output_array = np.array(answer).transpose(1, 2, 0)
+    return input_slices, output_array
+    
+
+model = tf.keras.models.load_model('models/final_resunet_pp_focaltversky_alpha0.6_beta0.4_gamma_1.hdf5', compile=False)
 
 st.header("Распознавание болезней печени")
 
@@ -66,20 +85,21 @@ if uploaded_file is not None:
     filename = uploaded_file.name
 
     if filename.endswith(".nii"):
-        predict_and_save(image_path, 'uploaded_files/prediction.nii')
-
-        prediction = nib.load('uploaded_files/prediction.nii').get_fdata()
-
+        image, prediction = predict(image_path)
+        st.write(image.shape, prediction.shape)
         num_slices = prediction.shape[2]
 
         st.title("CT Scan Viewer")
-        st.sidebar.header("Navigation")
 
         slice_num = st.slider("Slice Number", 0, num_slices - 1, 0)
 
         st.write(f"Displaying slice {slice_num}")
         plt.figure(figsize=(5, 5))
-        plt.imshow(prediction[:, :, slice_num], cmap='gray')
+        plt.imshow(image[:, :, slice_num], cmap='gray')
+        prediction = np.ma.masked_where(prediction[:,:,slice_num]==0, prediction[:,:,slice_num])
+        plt.imshow(prediction, alpha=0.5)
+
+        
         plt.axis('off')
         st.pyplot(plt)
 
@@ -89,12 +109,10 @@ if uploaded_file is not None:
 
         prediction = model.predict(np.expand_dims(image,axis=0)).squeeze()
         prediction = np.argmax(prediction, axis=-1).astype(np.int32)
-        
+        st.write(str(np.unique(prediction)))
+        st.write(prediction.shape)
         prediction[prediction == 1] = 128
         prediction[prediction == 2] = 255 
-
-        # meanIoU = tf.keras.metrics.MeanIoU(num_classes = 3)
-        # meanIoU.update_state()
 
         fig, ax = plt.subplots(1, 2, figsize=(15, 10))
 

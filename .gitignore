@@ -3,3 +3,5 @@ models
 histories
 all_logs
 uploaded_files
+slices_of_nii
+nii_to_png.py
