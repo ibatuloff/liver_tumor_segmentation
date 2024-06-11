@@ -66,11 +66,11 @@ def predict(input_path: str):
     return input_slices, output_array
     
 
-model = tf.keras.models.load_model('models/final_resunet_pp_focaltversky_alpha0.6_beta0.4_gamma_1.hdf5', compile=False)
+model = tf.keras.models.load_model('models/final_resunet_pp_andreydataset_focaltversky_alpha0.6_beta0.4_gamma_1.hdf5', compile=False)
 
 st.header("Распознавание болезней печени")
 
-uploaded_file = st.file_uploader("Загрузите JPG-файл")
+uploaded_file = st.file_uploader("Загрузите файл")
 
 if not os.path.exists("uploaded_files"):
     os.makedirs("uploaded_files")
@@ -88,12 +88,13 @@ if uploaded_file is not None:
         image, prediction = predict(image_path)
         st.write(image.shape, prediction.shape)
         num_slices = prediction.shape[2]
-
+        
         st.title("CT Scan Viewer")
 
         slice_num = st.slider("Slice Number", 0, num_slices - 1, 0)
 
         st.write(f"Displaying slice {slice_num}")
+        st.write(np.unique(prediction))
         plt.figure(figsize=(5, 5))
         plt.imshow(image[:, :, slice_num], cmap='gray')
         prediction = np.ma.masked_where(prediction[:,:,slice_num]==0, prediction[:,:,slice_num])
